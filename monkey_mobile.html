@@ -1,0 +1,575 @@
+
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jungle Monkey</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: #173e29;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+h1 {
+    color: #ffadd2;
+    font-size: 30px;
+    margin: 15px;
+}
+
+canvas {
+    display: block;
+    width: 96%;
+    max-width: 900px;
+    margin: auto;
+    border: 4px solid #e6a45c;
+    border-radius: 15px;
+    background: #9cdbcf;
+    touch-action: none;
+}
+
+.panel { margin: 20px; }
+
+input, button {
+    padding: 13px;
+    border: none;
+    border-radius: 12px;
+    font-size: 17px;
+}
+
+button {
+    background: #ff91c5;
+    color: #54223b;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 5px;
+}
+
+button:active { transform: scale(.95); }
+
+#controls {
+    display: flex;
+    justify-content: center;
+    gap: 25px;
+    margin: 15px;
+}
+
+#controls button {
+    min-width: 125px;
+    font-size: 20px;
+}
+
+#restart { display: none; }
+</style>
+</head>
+
+<body>
+
+<h1>🌴 JUNGLE MONKEY 🐒</h1>
+
+<div class="panel" id="start">
+    <h2>Як звати твою мавпочку? 💗</h2>
+    <input id="name" maxlength="16" placeholder="Ім'я мавпочки">
+    <button onclick="startGame()">ГРАТИ ❤️</button>
+</div>
+
+<canvas id="game" width="900" height="500"></canvas>
+
+<div id="controls">
+    <button id="jumpBtn">⬆️ СТРИБОК</button>
+    <button id="duckBtn">⬇️ ПРИГНУТИСЯ</button>
+</div>
+
+<button id="restart" onclick="restartGame()">🔄 ГРАТИ ЗНОВУ</button>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let name = "";
+let lives = 4;
+let bananas = 0;
+let running = false;
+let gameOver = false;
+
+let jumpHeight = 0;
+let jumpSpeed = 0;
+let jumping = false;
+let ducking = false;
+
+let obstacles = [];
+let fruits = [];
+
+let frame = 0;
+let speed = 5;
+let obstacleTimer = 0;
+let bananaTimer = 0;
+let invincible = 0;
+let animation = 0;
+
+function startGame() {
+    name = document.getElementById("name").value.trim();
+
+    if (!name) {
+        alert("Спочатку введи ім'я мавпочки!");
+        return;
+    }
+
+    lives = 4;
+    bananas = 0;
+    speed = 5;
+    jumpHeight = 0;
+    jumpSpeed = 0;
+    jumping = false;
+    ducking = false;
+    obstacles = [];
+    fruits = [];
+    frame = 0;
+    obstacleTimer = 0;
+    bananaTimer = 0;
+    invincible = 0;
+    animation = 0;
+
+    gameOver = false;
+    running = true;
+
+    document.getElementById("start").style.display = "none";
+    document.getElementById("restart").style.display = "none";
+}
+
+function restartGame() {
+    document.getElementById("name").value = name;
+    document.getElementById("start").style.display = "block";
+    document.getElementById("restart").style.display = "none";
+    running = false;
+    gameOver = false;
+    drawBackground();
+}
+
+function jump() {
+    if (running && !jumping && !ducking) {
+        jumping = true;
+        jumpSpeed = 16;
+    }
+}
+
+function duck(value) {
+    if (running && !jumping) {
+        ducking = value;
+    }
+}
+
+document.getElementById("jumpBtn").addEventListener("pointerdown", e => {
+    e.preventDefault();
+    jump();
+});
+
+document.getElementById("duckBtn").addEventListener("pointerdown", e => {
+    e.preventDefault();
+    duck(true);
+});
+
+["pointerup", "pointerleave", "pointercancel"].forEach(event => {
+    document.getElementById("duckBtn").addEventListener(event, () => duck(false));
+});
+
+window.addEventListener("keydown", e => {
+    if (e.key === "ArrowUp") jump();
+    if (e.key === "ArrowDown") duck(true);
+});
+
+window.addEventListener("keyup", e => {
+    if (e.key === "ArrowDown") duck(false);
+});
+
+// Малювання джунглів
+function drawBackground() {
+    let g = ctx.createLinearGradient(0, 0, 0, 500);
+    g.addColorStop(0, "#83c9d8");
+    g.addColorStop(1, "#d1e6a0");
+
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 900, 500);
+
+    // Далекі дерева
+    for (let i = 0; i < 8; i++) {
+        let x = (i * 160 - frame * 0.35) % 1050;
+        if (x < -100) x += 1050;
+
+        ctx.fillStyle = "#87623d";
+        ctx.fillRect(x, 180, 25, 260);
+
+        ctx.fillStyle = "#478d4a";
+        ctx.beginPath();
+        ctx.arc(x + 10, 170, 65, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Великі дерева
+    for (let i = 0; i < 7; i++) {
+        let x = (i * 200 - frame) % 1100;
+        if (x < -100) x += 1100;
+
+        ctx.fillStyle = "#654126";
+        ctx.fillRect(x, 260, 38, 180);
+
+        ctx.fillStyle = "#24713b";
+        ctx.beginPath();
+        ctx.arc(x + 15, 250, 65, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#398b43";
+        ctx.beginPath();
+        ctx.arc(x - 25, 275, 40, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Земля
+    ctx.fillStyle = "#956638";
+    ctx.fillRect(0, 430, 900, 70);
+
+    ctx.fillStyle = "#438c38";
+    ctx.fillRect(0, 420, 900, 13);
+
+    // Трава
+    for (let i = 0; i < 50; i++) {
+        let x = (i * 25 - frame * 1.8) % 900;
+
+        ctx.strokeStyle = "#286d32";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x, 430);
+        ctx.lineTo(x - 5, 415);
+        ctx.stroke();
+    }
+}
+
+// Гарна мавпочка
+function drawMonkey() {
+    let x = 155;
+    let y = 390 - jumpHeight;
+
+    if (invincible > 0 && Math.floor(invincible / 6) % 2 === 0) {
+        return;
+    }
+
+    ctx.save();
+
+    // Хвостик
+    ctx.strokeStyle = "#70401f";
+    ctx.lineWidth = 10;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(x - 15, y - 35);
+    ctx.bezierCurveTo(x - 85, y - 10, x - 70, y - 100, x - 25, y - 75);
+    ctx.stroke();
+
+    // Ніжки
+    ctx.strokeStyle = "#70401f";
+    ctx.lineWidth = 13;
+
+    if (!ducking) {
+        let move = Math.sin(animation * 0.25) * 12;
+
+        ctx.beginPath();
+        ctx.moveTo(x - 12, y - 35);
+        ctx.lineTo(x - 15 + move, y - 5);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(x + 15, y - 35);
+        ctx.lineTo(x + 15 - move, y - 5);
+        ctx.stroke();
+    }
+
+    // Тіло
+    ctx.fillStyle = "#754222";
+    ctx.beginPath();
+    ctx.ellipse(x, y - 45, 30, 43, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Животик
+    ctx.fillStyle = "#dba77c";
+    ctx.beginPath();
+    ctx.ellipse(x + 5, y - 43, 19, 29, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Вушка
+    ctx.fillStyle = "#754222";
+    ctx.beginPath();
+    ctx.arc(x - 28, y - 100, 17, 0, Math.PI * 2);
+    ctx.arc(x + 28, y - 100, 17, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#f2a4b8";
+    ctx.beginPath();
+    ctx.arc(x - 28, y - 100, 9, 0, Math.PI * 2);
+    ctx.arc(x + 28, y - 100, 9, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Голова
+    ctx.fillStyle = "#754222";
+    ctx.beginPath();
+    ctx.ellipse(x, y - 105, 34, 38, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Мордочка
+    ctx.fillStyle = "#e6b58c";
+    ctx.beginPath();
+    ctx.ellipse(x + 7, y - 91, 23, 17, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Очі
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(x - 9, y - 110, 7, 0, Math.PI * 2);
+    ctx.arc(x + 12, y - 110, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#25160d";
+    ctx.beginPath();
+    ctx.arc(x - 7, y - 110, 3, 0, Math.PI * 2);
+    ctx.arc(x + 14, y - 110, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Носик
+    ctx.fillStyle = "#70401f";
+    ctx.beginPath();
+    ctx.ellipse(x + 7, y - 91, 5, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Усмішка
+    ctx.strokeStyle = "#70401f";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x + 8, y - 88, 9, 0.2, 2.8);
+    ctx.stroke();
+
+    // Рожевий бантик
+    ctx.fillStyle = "#ff70b5";
+    ctx.beginPath();
+    ctx.ellipse(x - 13, y - 143, 13, 10, -0.5, 0, Math.PI * 2);
+    ctx.ellipse(x + 13, y - 143, 13, 10, 0.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffb4d5";
+    ctx.beginPath();
+    ctx.arc(x, y - 143, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+}
+
+// Перешкоди
+function drawObstacle(o) {
+    if (o.type === "stump") {
+        ctx.fillStyle = "#77421f";
+        ctx.fillRect(o.x, 380, 55, 50);
+
+        ctx.fillStyle = "#bd8650";
+        ctx.beginPath();
+        ctx.ellipse(o.x + 27, 380, 28, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+    } else if (o.type === "tree") {
+        ctx.fillStyle = "#70401f";
+        ctx.fillRect(o.x, 350, 48, 80);
+
+        ctx.fillStyle = "#3d843b";
+        ctx.beginPath();
+        ctx.arc(o.x + 24, 345, 36, 0, Math.PI * 2);
+        ctx.fill();
+    } else {
+        ctx.fillStyle = "#e36a43";
+        ctx.beginPath();
+        ctx.ellipse(o.x, 335, 22, 15, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#fff";
+        ctx.beginPath();
+        ctx.arc(o.x + 8, 330, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#222";
+        ctx.beginPath();
+        ctx.arc(o.x + 9, 330, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "#f6c344";
+        ctx.beginPath();
+        ctx.moveTo(o.x + 17, 337);
+        ctx.lineTo(o.x + 31, 341);
+        ctx.lineTo(o.x + 17, 344);
+        ctx.fill();
+
+        ctx.fillStyle = "#a63f30";
+        ctx.beginPath();
+        ctx.ellipse(o.x - 5, 315, 15, 7, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+// Банан
+function drawBanana(b) {
+    ctx.strokeStyle = "#ffda35";
+    ctx.lineWidth = 9;
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, 17, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#6e9a36";
+    ctx.fillRect(b.x - 17, b.y - 17, 5, 5);
+}
+
+// Основна логіка
+function update() {
+    frame++;
+    animation++;
+
+    if (invincible > 0) invincible--;
+
+    if (jumping) {
+        jumpHeight += jumpSpeed;
+        jumpSpeed -= 0.75;
+
+        if (jumpHeight <= 0) {
+            jumpHeight = 0;
+            jumping = false;
+            jumpSpeed = 0;
+        }
+    }
+
+    obstacleTimer++;
+
+    if (obstacleTimer >= 95 + Math.random() * 45) {
+        let types = ["stump", "tree", "bird"];
+        let type = types[Math.floor(Math.random() * types.length)];
+
+        obstacles.push({x: 930, type: type, hit: false});
+        obstacleTimer = 0;
+    }
+
+    bananaTimer++;
+
+    if (bananaTimer >= 80) {
+        fruits.push({x: 930, y: 300 + Math.random() * 65});
+        bananaTimer = 0;
+    }
+
+    // Перевірка зіткнень
+    let player = ducking
+        ? {x: 125, y: 345 - jumpHeight, w: 65, h: 45}
+        : {x: 125, y: 300 - jumpHeight, w: 65, h: 90};
+
+    obstacles.forEach(o => {
+        o.x -= speed;
+
+        if (o.hit) return;
+
+        let obstacle;
+
+        if (o.type === "stump") {
+            obstacle = {x:o.x, y:380, w:55, h:50};
+        } else if (o.type === "tree") {
+            obstacle = {x:o.x, y:350, w:48, h:80};
+        } else {
+            obstacle = {x:o.x, y:320, w:35, h:30};
+        }
+
+        let collision =
+            player.x < obstacle.x + obstacle.w &&
+            player.x + player.w > obstacle.x &&
+            player.y < obstacle.y + obstacle.h &&
+            player.y + player.h > obstacle.y;
+
+        if (collision && invincible === 0) {
+            lives--;
+            o.hit = true;
+            invincible = 75;
+
+            if (lives <= 0) {
+                gameOver = true;
+                running = false;
+                document.getElementById("restart").style.display = "inline-block";
+            }
+        }
+    });
+
+    obstacles = obstacles.filter(o => o.x > -100);
+
+    fruits.forEach(b => {
+        b.x -= speed;
+
+        let bananaRect = {x:b.x-12, y:b.y-18, w:25, h:30};
+
+        let collision =
+            player.x < bananaRect.x + bananaRect.w &&
+            player.x + player.w > bananaRect.x &&
+            player.y < bananaRect.y + bananaRect.h &&
+            player.y + player.h > bananaRect.y;
+
+        if (collision && !b.hit) {
+            bananas++;
+            b.hit = true;
+        }
+    });
+
+    fruits = fruits.filter(b => b.x > -50 && !b.hit);
+
+    speed = Math.min(8, 5 + Math.floor(bananas / 15) * 0.5);
+}
+
+// Малювання
+function draw() {
+    drawBackground();
+
+    if (running || gameOver) {
+        obstacles.forEach(drawObstacle);
+        fruits.forEach(drawBanana);
+        drawMonkey();
+
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 25px Arial";
+        ctx.fillText(name, 20, 35);
+        ctx.fillText("🍌 " + bananas, 20, 70);
+
+        ctx.font = "28px Arial";
+        ctx.fillText("❤️ ".repeat(lives), 700, 35);
+    }
+
+    if (gameOver) {
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(0, 0, 900, 500);
+
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#ff8fbe";
+        ctx.font = "bold 55px Arial";
+        ctx.fillText("GAME OVER ❤️", 450, 220);
+
+        ctx.fillStyle = "white";
+        ctx.font = "30px Arial";
+        ctx.fillText(name + " зібрала " + bananas + " бананів!", 450, 280);
+        ctx.font = "22px Arial";
+        ctx.fillText("Натисни «ГРАТИ ЗНОВУ»", 450, 335);
+        ctx.textAlign = "left";
+    }
+}
+
+function loop() {
+    if (running) update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
